@@ -1,0 +1,151 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Roti 515 - Toko</title>
+  <style>
+    :root{ --bg:#fff7ed; --accent:#d97706; --muted:#6b7280; }
+    body{font-family:Inter,Arial;margin:0;background:var(--bg);color:#111}
+    header{display:flex;align-items:center;gap:12px;padding:14px 18px;background:#fff;box-shadow:0 4px 12px rgba(0,0,0,0.06)}
+    nav a{margin-right:12px;text-decoration:none;color:#333}
+    .container{max-width:1100px;margin:18px auto;padding:0 16px}
+    .products{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:14px}
+    .card{background:#fff;padding:12px;border-radius:10px;box-shadow:0 6px 18px rgba(20,20,60,0.04)}
+    .card img{width:100%;height:140px;object-fit:cover;border-radius:8px}
+    .price{color:var(--accent);font-weight:700}
+    .btn{padding:8px 10px;border-radius:8px;border:0;cursor:pointer}
+    .btn-outline{background:transparent;border:1px solid #eee}
+    .btn-primary{background:var(--accent);color:#fff}
+    aside.cart{position:fixed;right:16px;bottom:16px;width:320px;background:#fff;padding:12px;border-radius:12px;box-shadow:0 10px 30px rgba(0,0,0,0.12)}
+    .cart-list{max-height:300px;overflow:auto;margin-bottom:8px}
+    .qty-control{display:flex;align-items:center;gap:6px}
+    @media (max-width:880px){ aside.cart{position:static;width:auto;margin-top:18px}}
+  </style>
+</head>
+<body>
+  <header>
+    <div style="font-weight:800">Roti 515</div>
+    <nav>
+      <a href="index.html">Home</a>
+      <a href="shop.html">Shop</a>
+      <a href="contact.html">Contact</a>
+      <a href="product.html">Product</a>
+    </nav>
+    <div style="margin-left:auto">Keranjang: <span id="cartCount">0</span></div>
+  </header>
+
+  <main class="container">
+    <h2>Produk</h2>
+    <div class="products" id="productsContainer"></div>
+  </main>
+
+  <aside class="cart" id="cartPane">
+    <h4>Keranjang</h4>
+    <div class="cart-list" id="cartList">Keranjang kosong</div>
+    <div style="display:flex;justify-content:space-between">
+      <div>Subtotal</div><div id="subtotal">Rp 0</div>
+    </div>
+    <div style="margin-top:8px;text-align:right">
+      <button id="checkoutBtn" class="btn btn-primary">Checkout</button>
+    </div>
+  </aside>
+
+  <script>
+    // contoh produk — sesuaikan katalog kamu
+    const PRODUCTS = [
+      {id:'R001',title:'Roti Pia Susu',price:25000,img:'img/Roti Pia Susu new.jpg'},
+      {id:'R002',title:'Roti Wijen (6 pcs)',price:5000,img:'img/Roti Wijen new.jpg'},
+      {id:'R003',title:'Roti Klemben (4 pcs)',price:15000,img:'img/Roti Klemben new.jpg'},
+      {id:'R001',title:'Onde-onde Ketawa',price:25000,img:'img/onde onde ketawa new.jpg'},
+      {id:'R001',title:'Roti Marie Kelapa',price:25000,img:'img/Roti Marie Kelapa new.jpg'}
+    ];
+
+    let cart = {};
+
+    const rupiah = n => 'Rp ' + n.toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    const productsContainer = document.getElementById('productsContainer');
+    const cartList = document.getElementById('cartList');
+    const subtotalEl = document.getElementById('subtotal');
+    const cartCountEl = document.getElementById('cartCount');
+
+    function renderProducts(){
+      productsContainer.innerHTML = '';
+      PRODUCTS.forEach(p=>{
+        const c = document.createElement('div'); c.className='card';
+        c.innerHTML = `
+          <img src="${p.img}" alt="${p.title}">
+          <h4>${p.title}</h4>
+          <div class="price">${rupiah(p.price)}</div>
+          <div style="margin-top:8px;display:flex;gap:8px;align-items:center">
+            <button class="btn btn-outline" data-action="dec" data-id="${p.id}">-</button>
+            <div id="count-${p.id}" style="min-width:26px;text-align:center">0</div>
+            <button class="btn btn-primary" data-action="inc" data-id="${p.id}">+</button>
+          </div>
+        `;
+        productsContainer.appendChild(c);
+      });
+    }
+
+    function renderCart(){
+      const keys = Object.keys(cart);
+      if(keys.length===0){ cartList.innerHTML='Keranjang kosong'; subtotalEl.textContent='Rp 0'; cartCountEl.textContent='0'; PRODUCTS.forEach(p=>document.getElementById('count-'+p.id).textContent='0'); return;}
+      cartList.innerHTML = '';
+      let sub=0, totalItems=0;
+      keys.forEach(k=>{
+        const it = cart[k];
+        sub += it.price * it.qty;
+        totalItems += it.qty;
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.marginBottom = '6px';
+        row.innerHTML = `<div>${it.title} <small>(${it.qty})</small></div><div>${rupiah(it.price*it.qty)}</div>`;
+        cartList.appendChild(row);
+      });
+      subtotalEl.textContent = rupiah(sub);
+      cartCountEl.textContent = totalItems;
+      PRODUCTS.forEach(p=>{ const el = document.getElementById('count-'+p.id); if(el) el.textContent = cart[p.id] ? cart[p.id].qty : '0'; });
+    }
+
+    function changeQty(id, delta){
+      const prod = PRODUCTS.find(p=>p.id===id);
+      if(!prod) return;
+      if(!cart[id]){
+        if(delta<=0) return;
+        cart[id] = {...prod, qty:0};
+      }
+      cart[id].qty += delta;
+      if(cart[id].qty <= 0) delete cart[id];
+      localStorage.setItem('roti515_cart', JSON.stringify(cart));
+      renderCart();
+    }
+
+    function loadCart(){ try{ const raw = localStorage.getItem('roti515_cart'); if(raw) cart = JSON.parse(raw);}catch(e){cart={}} }
+
+    document.addEventListener('click', e=>{
+      const act = e.target.dataset.action;
+      const id = e.target.dataset.id;
+      if(!act) return;
+      if(act === 'inc') changeQty(id, +1);
+      if(act === 'dec') changeQty(id, -1);
+    });
+
+    document.getElementById('checkoutBtn').addEventListener('click', ()=>{
+      if(Object.keys(cart).length === 0) return alert('Keranjang kosong');
+      // demo: tampil pesan ringkasan
+      let msg = 'Pesanan:\\n';
+      let total=0;
+      Object.keys(cart).forEach(k=>{ msg += `${cart[k].title} x${cart[k].qty} = ${rupiah(cart[k].price*cart[k].qty)}\\n`; total += cart[k].price*cart[k].qty;});
+      msg += `Total: ${rupiah(total)}`;
+      alert(msg);
+      // jika mau kirim ke server: gunakan fetch POST ke endpoint server
+    });
+
+    // init
+    loadCart();
+    renderProducts();
+    renderCart();
+  </script>
+</body>
+</html>
